@@ -1,29 +1,36 @@
-# contenitore1.get_filling()  # Stampa la quantità contenuta
-# contenitore1.add_waste(0.3)  # Aggiunge 0.35 mc al contenuto
-# contenitore1.get_filling()  # Stampa la quantita' contenuta aggiornata
+# coding: utf-8
 
-# print "Distanza Utente1 - Contenitore3: %.2f metri" % obj_distance(utente1, contenitore3)
+from classes import *
+from pprint import pprint
+import time
+import logging
 
-print "Il contenitore più vicino a utente1 è", nearest_container(utente1, contenitori)
+start_time = time.time()
 
-print "Contenitori ordinati per distanza crescente:", order_containers_by_distance(utente1, contenitori)
+logging.basicConfig(level=logging.DEBUG, format="%(asctime)s %(levelname)s %(message)s")
 
-print "Contenitori plausibili:", plausible_containers(utente1, contenitori)
+def run_model():
+    logging.info('Model Started.')
+    users = create_users("users.csv")
+    conts = create_containers("containers.csv")
 
-print "Produzione utente1:", utente1.production()
+    # users[0].update_available_containers(conts)
+    pprint(csv_to_dict("containers.csv"))
+    print()
 
-print "Produzione utente2:", utente2.production()
 
-# print probability_factor(utente1, contenitore2, contenitore3)
+    # logging.debug(pprint(users[0].details))
+    # users[0].throw_garbage()
+    # conts["cont1"].add_waste(0.1)
+    # print(conts[0].details['wasteInside'])
 
-# av_cont = [[10, "dist10", 10], [20, "dist20", 20], [5, "dist5", 5]]
-#
-# print av_cont
-#
-# av_cont.sort()
-#
-# print av_cont
 
-print utente1.details["available_containers"]
-utente1.update_available_containers(contenitori)
-print utente1.details["available_containers"]
+    # for sel_user in users:
+    #     sel_user.update_available_containers(conts)
+    #     sel_user.throw_garbage()
+    #     print(sel_user.details["instance_name"], "processed.")
+
+
+run_model()
+
+print("--- %s milliseconds ---" % (round((1000 * (time.time() - start_time)), 5)))
