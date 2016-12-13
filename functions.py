@@ -28,6 +28,9 @@ def aversine(lon1, lat1, lon2, lat2):
     a = math.sin(dlat / 2) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2
     c = 2 * math.asin(math.sqrt(a))
     meters = 6356988 * c
+
+    logging.debug('Distance between is %s meters' % meters)
+
     return meters
 
 
@@ -38,8 +41,8 @@ def obj_distance(obj1, obj2):
     :param obj2:
     :return: float
     """
-    distance = aversine(obj1.details["lon"], obj1.details["lat"], obj2.details["lon"], obj2.details["lat"])
-
+    logging.debug('Calculating distance between %s and %s ...' % (obj1.details['itemid'], obj2.details['itemid']))
+    distance = aversine(obj1.details['lon'], obj1.details['lat'], obj2.details['lon'], obj2.details['lat'])
     return distance
 
 
@@ -54,6 +57,7 @@ def scale_to_1(factors):
     scaled_factors = []
     for factor in factors:
         scaled_factors.append(float(factor) / total)
+    logging.debug('Scaling factors %s to %s' % (factors, scaled_factors))
     return scaled_factors
 
 
@@ -64,24 +68,27 @@ def order_containers_by_distance(user, containers):
     :param containers: list of object container
     :return: {fraction1: [distance, cont_id], ...} ordered by distance
     """
-    cont_list = {}
-    for container in containers:
-        distance = obj_distance(user, container)
-        cont_id = container.details["itemid"]
-        cont_fraction = container.details["waste_fraction"]
-        cont_instance_name = container.details["instance_name"]
 
-        if cont_fraction in cont_list:
+    cont_dict = {}
+    for cont_name, container in containers.items():
+        distance = obj_distance(user, container)
+        cont_id = container.details['itemid']
+        cont_fraction = container.details['waste_fraction']
+        cont_instance_name = container.details['instance_name']
+
+        if cont_fraction in cont_dict:
             pass
         else:
-            cont_list[cont_fraction] = []
+            cont_dict[cont_fraction] = []
 
-        cont_list[cont_fraction].append([distance, cont_instance_name, cont_id])
+        cont_dict[cont_fraction].append([distance, cont_instance_name, cont_id])
 
-    for fraction, c_list in cont_list.items():
+    for fraction, c_list in cont_dict.items():
         c_list.sort()
 
-    return cont_list
+    logging.debug('Sorted containers by distance %s' % (cont_dict))
+
+    return cont_dict
 
 
 def nearest_container(user, fraction, containers):
@@ -92,7 +99,9 @@ def nearest_container(user, fraction, containers):
     :param containers:
     :return: string
     """
-    return order_containers_by_distance(user, containers)[fraction][0][1]
+    nearest = order_containers_by_distance(user, containers)[fraction][0][1]
+    logging.debug('The nearest container to user "%s" for the fraction "%s" is "%s"' % (user, fraction, nearest))
+    return nearest
 
 
 def plausible_containers(user, containers):
@@ -112,8 +121,6 @@ def plausible_containers(user, containers):
         min_distance = nearest_cont[0]
         max_distance = min_distance * settings.willFactor
 
-        # print "maximum distance:", max_distance
-
         if fraction in plausible_containers_dict:
             pass
         else:
@@ -124,6 +131,7 @@ def plausible_containers(user, containers):
                 plausible_containers_dict[fraction].append(cont)
             else:
                 break
+
     return plausible_containers_dict
 
 
@@ -142,13 +150,10 @@ def throw_factor(min_distance, container_distance):
     th2_dist = min_distance * (1 + (settings.willFactor - 1) * 0.8)
     th2_fact = 0.25
 
-    # print "th1 =", int(th1_dist)
-    # print "th2 =", int(th2_dist)
-
     angular_coefficient = (th1_fact - th2_fact) / (th2_dist - th1_dist)
 
     if container_distance < min_distance:
-        x_fact = "Error: No containers shouls be nearer than nearest container"
+        x_fact = 'Error: No containers should be nearer than nearest container'
     elif container_distance < th1_dist:
         x_fact = th1_fact
     elif container_distance < th2_dist:
@@ -179,61 +184,47 @@ def get_waste_production(user_type):
     while i < len(settings.fractions):
         prod_dict[settings.fractions[i]] = settings.standard_production[user_type][i]
         i += 1
-    logging.debug("Production for %s is %s" % (user_type, prod_dict))
+    logging.debug('Production for %s is %s' % (user_type, prod_dict))
     return prod_dict
 
 
-def csv_to_dict_2(csv_file):
+def csv_to_dict(csv_file, primary_key='itemid'):
     with open(csv_file, mode='r') as infile:
         reader = csv.DictReader(infile, delimiter=';')
+        if primary_key not in reader.fieldnames:
+            logging.error('Cannot create dict from csv. Primary key "%s" not found' % primary_key)
+            exit()
         dict_list = {}
         for line in reader:
-            dict_list[line['itemid']] = line
+            dict_list[line[primary_key]] = line
     return dict_list
 
 
-def csv_to_dict(csv_file):
-    with open(csv_file, mode='r') as infile:
-        reader = csv.DictReader(infile, delimiter=';')
-        dict_list = []
-        for line in reader:
-            dict_list.append(line)
-    return dict_list
-
-
-def create_users(inputFile):
+def create_users(input_file, primary_key):
     logging.info('Creating User instances...')
-    users_list = []
-    users_dict = csv_to_dict(inputFile)
-    for user in users_dict:
-        username = user['username']
-        user_type = user['user_type']
-        user['itemid'] = classes.User(user['username'], user['itemid'], user['instance_name'], user['lat'], user['lon'],
-                                        user['user_type'], user['dim_factor'])
-        users_list.append(user['username'])
-        logging.debug('User %s (%s) created' % (username, user_type))
+    users_dict = {}
+    users_temp_dict = csv_to_dict(input_file, primary_key)
+    for itemid, attributes in users_temp_dict.items():
+        username = attributes['username']
+        user_type = attributes['user_type']
+        dim_factor = attributes['dim_factor']
+        itemid = classes.User(attributes['username'], attributes['itemid'], attributes['instance_name'], attributes['lat'], attributes['lon'],
+                                attributes['user_type'], attributes['dim_factor'])
+        users_dict[username] = itemid
+        logging.debug('User %s (%s) created with dim_factor = %s' % (username, user_type, dim_factor))
+
+    return users_dict
 
 
-    # http://stackoverflow.com/questions/348196/creating-a-list-of-objects-in-python
-    # for count in xrange(4):
-    #     x = SimpleClass()
-    #     x.attr = count
-    #     simplelist.append(x)
-    #
-    # simplelist = [SimpleClass(count) for count in xrange(4)]
-
-    return users_list
-
-
-def create_containers(inputFile):
+def create_containers(input_file, primary_key='itemid'):
     logging.info('Creating Container instances...')
-    conts_list = []
-    conts_dict = csv_to_dict(inputFile)
-    for cont in conts_dict:
-        cont_name = cont['instance_name']
-        cont['instance_name'] = classes.Container(cont['itemid'], cont['instance_name'], cont['lat'], cont['lon'], cont['parent'],
-                                   cont['waste_fraction'], cont['con_type'], cont['capacity'])
-        conts_list.append(cont['instance_name'])
-        logging.debug('Container %s (%s - %s - %s - %s - %s - %s - %s - %s) created' % (cont_name, cont['itemid'], cont_name, cont['lat'], cont['lon'], cont['parent'],
-                                   cont['waste_fraction'], cont['con_type'], cont['capacity']))
-    return conts_list
+    conts_dict = {}
+    conts_temp_dict = csv_to_dict(input_file, primary_key)
+    for itemid, attributes in conts_temp_dict.items():
+        cont_name = attributes['instance_name']
+        itemid = classes.Container(attributes['itemid'], attributes['instance_name'], attributes['lat'], attributes['lon'], attributes['parent'],
+                                   attributes['waste_fraction'], attributes['con_type'], attributes['capacity'])
+        conts_dict[cont_name] = itemid
+        logging.debug('Container %s (%s | %s | %s | %s | %s | %s | %s) created' % (cont_name, attributes['itemid'], attributes['lat'], attributes['lon'], attributes['parent'],
+                                                                                   attributes['waste_fraction'], attributes['con_type'], attributes['capacity']))
+    return conts_dict
