@@ -29,8 +29,6 @@ def aversine(lon1, lat1, lon2, lat2):
     c = 2 * math.asin(math.sqrt(a))
     meters = 6356988 * c
 
-    logging.debug('Distance between is %s meters' % meters)
-
     return meters
 
 
@@ -41,7 +39,6 @@ def obj_distance(obj1, obj2):
     :param obj2:
     :return: float
     """
-    logging.debug('Calculating distance between %s and %s ...' % (obj1.details['itemid'], obj2.details['itemid']))
     distance = aversine(obj1.details['lon'], obj1.details['lat'], obj2.details['lon'], obj2.details['lat'])
     return distance
 
@@ -71,7 +68,11 @@ def order_containers_by_distance(user, containers):
 
     cont_dict = {}
     for cont_name, container in containers.items():
+
+        # logging.debug('Calculating distance between %s and %s ...' % (user.details['itemid'], container.details['itemid']))
         distance = obj_distance(user, container)
+        logging.debug('Distance between %s and %s: %s meters' % (user.details['itemid'], container.details['itemid'], round(distance)))
+
         cont_id = container.details['itemid']
         cont_fraction = container.details['waste_fraction']
         cont_instance_name = container.details['instance_name']
@@ -86,7 +87,8 @@ def order_containers_by_distance(user, containers):
     for fraction, c_list in cont_dict.items():
         c_list.sort()
 
-    logging.debug('Sorted containers by distance %s' % (cont_dict))
+    # logging.debug('\nContainers sorted by distance for user %s: %s' %
+    #               (user.details['username'], cont_dict))
 
     return cont_dict
 
@@ -184,7 +186,7 @@ def get_waste_production(user_type):
     while i < len(settings.fractions):
         prod_dict[settings.fractions[i]] = settings.standard_production[user_type][i]
         i += 1
-    logging.debug('Production for %s is %s' % (user_type, prod_dict))
+    # logging.debug('Production for %s is %s' % (user_type, prod_dict))
     return prod_dict
 
 
@@ -201,30 +203,31 @@ def csv_to_dict(csv_file, primary_key='itemid'):
 
 
 def create_users(input_file, primary_key):
-    logging.info('Creating User instances...')
     users_dict = {}
     users_temp_dict = csv_to_dict(input_file, primary_key)
     for itemid, attributes in users_temp_dict.items():
         username = attributes['username']
         user_type = attributes['user_type']
         dim_factor = attributes['dim_factor']
-        itemid = classes.User(attributes['username'], attributes['itemid'], attributes['instance_name'], attributes['lat'], attributes['lon'],
-                                attributes['user_type'], attributes['dim_factor'])
+        itemid = classes.User(attributes['username'], attributes['itemid'], attributes['instance_name'],
+                              attributes['lat'], attributes['lon'], attributes['user_type'], attributes['dim_factor'])
         users_dict[username] = itemid
-        logging.debug('User %s (%s) created with dim_factor = %s' % (username, user_type, dim_factor))
+        logging.debug('User %s (%s) created with dim_factor = %s\nWaste productionof %s: %s' %
+                      (username, user_type, dim_factor, username, itemid.details['waste_production']))
 
     return users_dict
 
 
 def create_containers(input_file, primary_key='itemid'):
-    logging.info('Creating Container instances...')
     conts_dict = {}
     conts_temp_dict = csv_to_dict(input_file, primary_key)
     for itemid, attributes in conts_temp_dict.items():
         cont_name = attributes['instance_name']
-        itemid = classes.Container(attributes['itemid'], attributes['instance_name'], attributes['lat'], attributes['lon'], attributes['parent'],
-                                   attributes['waste_fraction'], attributes['con_type'], attributes['capacity'])
+        itemid = classes.Container(attributes['itemid'], attributes['instance_name'], attributes['lat'],
+                                   attributes['lon'], attributes['parent'], attributes['waste_fraction'],
+                                   attributes['con_type'], attributes['capacity'])
         conts_dict[cont_name] = itemid
-        logging.debug('Container %s (%s | %s | %s | %s | %s | %s | %s) created' % (cont_name, attributes['itemid'], attributes['lat'], attributes['lon'], attributes['parent'],
-                                                                                   attributes['waste_fraction'], attributes['con_type'], attributes['capacity']))
+        logging.debug('Container %s (%s | %s | %s | %s | %s | %s | %s) created' %
+                      (cont_name, attributes['itemid'], attributes['lat'], attributes['lon'], attributes['parent'],
+                       attributes['waste_fraction'], attributes['con_type'], attributes['capacity']))
     return conts_dict

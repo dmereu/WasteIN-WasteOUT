@@ -34,28 +34,41 @@ import logging
 
 start_time = time.time()
 
-logging.basicConfig(level=logging.DEBUG, format='%(message)s')
+logging.basicConfig(level=logging.INFO, format='%(levelname)s %(message)s')
 
 
 def run_model():
     logging.info('Model Started.')
 
+    logging.info('Creating User instances...\n')
     users = create_users(settings.users_file_name, settings.users_file_prkey)
+    logging.info('%s users created.\n' % len(users))
+
+    logging.info('Creating Container instances...\n')
     conts = create_containers(settings.containers_file_name, settings.containers_file_prkey)
+    logging.info('%s containers created.\n' % len(conts))
 
     for key, sel_user in users.items():
-        logging.info('Processing user "%s" (%s)...' % (sel_user.details['instance_name'], sel_user.details['username']))
+        logging.info('Processing user "%s" (%s)...\n' %
+                     (sel_user.details['instance_name'], sel_user.details['username']))
         sel_user.update_available_containers(conts)
         sel_user.throw_garbage(conts)
-        logging.info('User "%s" (%s) fully processed' % (sel_user.details['instance_name'], sel_user.details['username']))
+        logging.info('User "%s" (%s) fully processed, all the waste was thrown\n' %
+                     (sel_user.details['instance_name'], sel_user.details['username']))
 
-        logging.debug('*** Checking containers fillment ...')
+        logging.info('Checking containers fillment ...')
         for key, cont in conts.items():
             cont.get_filling()
 
 
 run_model()
 
-logging.info('--- Total elaboration time: %s milliseconds ---' % round((1000 * (time.time() - start_time)), 5))
+logging.info('--- Total elaboration time: %s milliseconds ---' %
+             round((1000 * (time.time() - start_time)), 5))
 
 
+# NEXT:
+# Curve di produzione su base diaria, parametrizzata su festività, stagionalità, giorno della settimana.
+# Interpolazione della curva con spline
+# Valutazione delle distanze su grafo stradale
+# Controllo giacenza rifiuti sull'utenza (tempo, quantità)

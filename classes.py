@@ -51,17 +51,6 @@ class User(object):
         else:
             return 'There are no specified waste production for "%s" production' % user_type
 
-        # Generate the production dictionary
-        # production_quantity = {
-        #     'organic': user_std_production[0],
-        #     'aluminium': user_std_production[1],
-        #     'paper': user_std_production[2],
-        #     'glass': user_std_production[3],
-        #     'textiles': user_std_production[4],
-        #     'oils': user_std_production[5]
-        # }
-        #
-        # return production_quantity
 
     def update_available_containers(self, containers):
 
@@ -70,9 +59,13 @@ class User(object):
         available_containers_dict = {}
         plausible_containers_dict = plausible_containers(self, containers)
 
-        logging.debug('The plausible containers for user "%s" are: %s' % (self.details['username'], plausible_containers_dict))
+        logging.info('Resuming plausible containers ...')
 
         for fraction, conts_list in plausible_containers_dict.items():
+
+            logging.debug('User "%s" for fraction %s has %s plausible containers: %s' %
+                          (self.details['username'], fraction, len(conts_list), conts_list))
+
             min_distance = conts_list[0][0]
             throw_factor_sum = 0
 
@@ -94,15 +87,18 @@ class User(object):
         self.details['available_containers'] = available_containers_dict
 
     def throw_garbage(self, conts):
-        logging.debug('User %s (%s) has a standard waste production of: %s' % (self.details['username'], self.details['user_type'], self.details['waste_production']))
+        logging.info('Throwing garbage ...')
         for fraction, cont_list in self.details['available_containers'].items():
             quantity_thrown = self.details['waste_production'][fraction]
-            logging.debug('User %s has produced %s %s of %s' % (self.details['username'], settings.std_prod_unit, quantity_thrown, fraction))
+            logging.debug('User %s has produced %s %s of %s' %
+                          (self.details['username'], quantity_thrown, settings.std_prod_unit, fraction))
             for cont in cont_list:
                 quantity_factor = cont[2]
                 destination_container = cont[1]
                 conts[destination_container].add_waste(quantity_thrown*quantity_factor)
-                logging.info('%s thrown %s %s to %s' % (self.details['username'], settings.std_prod_unit, quantity_factor*quantity_thrown, destination_container))
+                logging.debug('%s thrown %s %s to %s' %
+                             (self.details['username'], settings.std_prod_unit,
+                              quantity_factor*quantity_thrown, destination_container))
 
 
 class Container(object):
@@ -115,8 +111,8 @@ class Container(object):
             'parent_island': parent,  # ItemID of parent Island
             'waste_fraction': waste_fraction,  # Type of container (may be a code)
             'typeOfContainer': con_type,  # Type of container (may be a code)
-            'capacity': capacity,  # Container's net capacity, in cubic meters
-            'wasteInside': 0.00  # Container's filling status, in cubic meters
+            'capacity': capacity,  # Container's net capacity, in the defined standard unit
+            'wasteInside': 0.00  # Container's filling status, in the defined standard unit
         }
 
     def add_waste(self, how_much):
@@ -127,7 +123,9 @@ class Container(object):
         print(self.details)
 
     def get_filling(self):
-        logging.info('The container "%s" (%s) now contains %s %s' % (self.details['instance_name'], self.details['itemid'], self.details['wasteInside'], settings.std_prod_unit))
+        logging.info('The container "%s" (%s) now contains %s %s' %
+                     (self.details['instance_name'], self.details['itemid'],
+                      self.details['wasteInside'], settings.std_prod_unit))
 
 
 class Island(object):
