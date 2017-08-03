@@ -2,7 +2,7 @@
 
 from functions import *
 import logging
-import settings
+# import settings
 
 
 class User(object):

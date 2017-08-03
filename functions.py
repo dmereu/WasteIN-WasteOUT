@@ -1,6 +1,6 @@
 # coding: utf-8
 
-import math, csv, classes, settings, logging
+import math, csv, classes, logging
 
 
 def aversine(lon1, lat1, lon2, lat2):
